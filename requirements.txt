@@ -1,0 +1,8 @@
+streamlit==1.39.0
+pandas==2.2.2
+openpyxl==3.1.5
+requests==2.32.3
+Pillow==10.4.0
+rembg==2.0.59
+onnxruntime==1.19.2
+urllib3==2.2.2
