@@ -1,5 +1,5 @@
 # app.py — PNG transparente, UI corporativa verde, progreso por imagen, sin selecciones por defecto
-import io, zipfile, tempfile, re
+import io, zipfile, tempfile, re, os
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +7,11 @@ import streamlit as st
 import pandas as pd
 from PIL import Image, ImageOps
 import requests
+
+# ===== Ajustes de entorno =====
+# Forzar OMP threads para evitar problemas en entornos Cloud
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OMP_WAIT_POLICY", "ACTIVE")
 
 # ===== Colores =====
 PRIMARY_BLUE = "#0B62B3"   # header
@@ -55,14 +60,24 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ===== Quitar fondo (rembg) =====
+# ===== Colocar rembg (seguro) =====
 REMBG_OK = False
+SESSION = None
 try:
+    # Importar rembg tras ajustar variables de entorno
     from rembg import remove as rembg_remove, new_session
-    SESSION = new_session("isnet-general-use")
+    # Usar el modelo estable u2net por compatibilidad en Cloud
+    try:
+        SESSION = new_session("u2net")
+    except Exception:
+        # fallback a autodetección
+        SESSION = new_session()
     REMBG_OK = True
-except Exception:
+    # Mensaje de debug (se puede quitar en producción)
+    st.success("✅ rembg cargado correctamente (modelo: u2net o por defecto)")
+except Exception as e:
     REMBG_OK = False
+    st.warning(f"⚠️ rembg no está disponible: {e}")
 
 # ===== Utilidades =====
 INVALID_RE = re.compile(r"[^\w\-.]+")
@@ -134,15 +149,19 @@ def select_output_directory() -> Optional[str]:
     # Devolver la ruta seleccionada (o None si se usa temporal)
     return st.session_state.get('output_dir_selected', None)
 
+
 def safe_name(name: str) -> str:
     base = INVALID_RE.sub("_", (name or "").strip())
     return base[:150] if len(base) > 150 else (base or "archivo")
 
+
 def is_image_name(name: str) -> bool:
     return name.lower().endswith((".png",".jpg",".jpeg",".webp",".bmp",".tif",".tiff"))
 
+
 def image_from_bytes(data: bytes) -> Image.Image:
     return Image.open(io.BytesIO(data)).convert("RGBA")
+
 
 def ensure_square_canvas(img: Image.Image, size: int) -> Image.Image:
     img = ImageOps.exif_transpose(img)
@@ -155,6 +174,7 @@ def ensure_square_canvas(img: Image.Image, size: int) -> Image.Image:
     can.paste(img, ((size-nw)//2,(size-nh)//2), img)
     return can
 
+
 def download_image(url: str, sess: requests.Session) -> Optional[Image.Image]:
     try:
         r = sess.get(url, headers={"User-Agent":"Mozilla/5.0"}, timeout=30)
@@ -163,6 +183,7 @@ def download_image(url: str, sess: requests.Session) -> Optional[Image.Image]:
         return image_from_bytes(r.content)
     except Exception:
         return None
+
 
 def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
     """Safely remove background using rembg if available.
@@ -177,7 +198,6 @@ def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
 
     try:
         # Protect against extremely large images that may exhaust memory.
-        # Reduced from 2500px to 1024px to prevent OOM in Cloud
         max_side = 1024
         w, h = img.size
         if max(w, h) > max_side:
@@ -187,7 +207,8 @@ def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
             st.info(f"Imagen redimensionada a {nw}x{nh}px para procesamiento seguro")
         else:
             proc_img = img
-        
+            scale = 1.0
+
         # Ensure we start with a clean slate
         import gc
         gc.collect()
@@ -208,9 +229,9 @@ def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
 
         # If we downscaled for processing, paste the result onto a canvas sized like original
         if proc_img is not img:
-            # create transparent canvas of original size and paste centered
             canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-            canvas.paste(out.resize((int(round(w*scale)), int(round(h*scale))), Image.LANCZOS), ((w - int(round(w*scale))) // 2, (h - int(round(h*scale))) // 2), out.resize((int(round(w*scale)), int(round(h*scale))), Image.LANCZOS))
+            resized = out.resize((int(round(w*scale)), int(round(h*scale))), Image.LANCZOS)
+            canvas.paste(resized, ((w - resized.width) // 2, (h - resized.height) // 2), resized)
             out = canvas
 
         return out
@@ -227,6 +248,7 @@ def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
             gc.collect()
         except Exception:
             pass
+
 
 def make_zip(dir_path: Path) -> bytes:
     mem = io.BytesIO()
@@ -290,6 +312,7 @@ def count_zip_images(file) -> int:
             return sum(1 for n in z.namelist() if is_image_name(n))
     except Exception:
         return 0
+
 
 def count_excel_rows(upload) -> int:
     try:
@@ -394,7 +417,7 @@ if st.button("Procesar"):
                 url = str(row[col_url]).strip()
                 # Eliminado forzar_2000: ya no se modifica la URL
 
-                if not url.lower().startsWith(("http://","https://")):
+                if not url.lower().startswith(("http://","https://")):
                     mani_rows.append({"origen":"excel", "sku":sku, "url":url, "archivo":"", "estado":"URL_INVALIDA"})
                     tick(); continue
 

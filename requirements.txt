@@ -1,8 +1,7 @@
-streamlit>=1.51.0
+streamlit
+pillow
 pandas
-Pillow
-requests
 openpyxl
-# Background removal está deshabilitado en la nube para evitar problemas de memoria
-# Para usar localmente, instala:
-#   pip install rembg onnxruntime
+requests
+rembg
+onnxruntime
