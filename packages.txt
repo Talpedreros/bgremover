@@ -1,4 +1,0 @@
-# Este archivo está intencionalmente vacío para un despliegue rápido
-# Si usas rembg en el despliegue, podrías necesitar paquetes del sistema en algunos hosts
-# (por ejemplo: libglib2.0-0, libgomp1). Añade aquí los nombres de paquetes apt, uno por línea.
-# Deja este archivo vacío si no necesitas paquetes del sistema.
