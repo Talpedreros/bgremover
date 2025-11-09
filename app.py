@@ -165,20 +165,68 @@ def download_image(url: str, sess: requests.Session) -> Optional[Image.Image]:
         return None
 
 def remove_bg(img: Image.Image, alta_calidad: bool) -> Image.Image:
+    """Safely remove background using rembg if available.
+
+    This wrapper catches exceptions (including MemoryError) so the Streamlit
+    app doesn't crash on large or problematic images. If rembg is not
+    available or an error occurs, the original image is returned and the
+    error is logged to the Streamlit UI.
+    """
     if not REMBG_OK:
         return img
-    if alta_calidad:
-        return rembg_remove(
-            img,
-            session=SESSION,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_structure_size=10,
-            alpha_matting_base_size=1000,
-            post_process_mask=True
-        )
-    return rembg_remove(img, session=SESSION)
+
+    try:
+        # Protect against extremely large images that may exhaust memory.
+        # Reduced from 2500px to 1024px to prevent OOM in Cloud
+        max_side = 1024
+        w, h = img.size
+        if max(w, h) > max_side:
+            scale = max_side / max(w, h)
+            nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+            proc_img = img.resize((nw, nh), Image.LANCZOS)
+            st.info(f"Imagen redimensionada a {nw}x{nh}px para procesamiento seguro")
+        else:
+            proc_img = img
+        
+        # Ensure we start with a clean slate
+        import gc
+        gc.collect()
+
+        if alta_calidad:
+            out = rembg_remove(
+                proc_img,
+                session=SESSION,
+                alpha_matting=True,
+                alpha_matting_foreground_threshold=240,
+                alpha_matting_background_threshold=10,
+                alpha_matting_erode_structure_size=10,
+                alpha_matting_base_size=1000,
+                post_process_mask=True
+            )
+        else:
+            out = rembg_remove(proc_img, session=SESSION)
+
+        # If we downscaled for processing, paste the result onto a canvas sized like original
+        if proc_img is not img:
+            # create transparent canvas of original size and paste centered
+            canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            canvas.paste(out.resize((int(round(w*scale)), int(round(h*scale))), Image.LANCZOS), ((w - int(round(w*scale))) // 2, (h - int(round(h*scale))) // 2), out.resize((int(round(w*scale)), int(round(h*scale))), Image.LANCZOS))
+            out = canvas
+
+        return out
+    except MemoryError as me:
+        st.error("Error de memoria al procesar la imagen con rembg. Se devolverá la imagen original.")
+        return img
+    except Exception as e:
+        # Log exception for debugging but don't crash the app
+        st.error(f"Error al quitar fondo (rembg): {type(e).__name__}: {e}")
+        return img
+    finally:
+        try:
+            import gc
+            gc.collect()
+        except Exception:
+            pass
 
 def make_zip(dir_path: Path) -> bytes:
     mem = io.BytesIO()
@@ -191,7 +239,26 @@ def make_zip(dir_path: Path) -> bytes:
 
 # ===== Sidebar =====
 st.sidebar.header("Entrada")
-f_imgs = st.sidebar.file_uploader("Imágenes sueltas", type=["png","jpg","jpeg","webp","bmp","tif","tiff"], accept_multiple_files=True)
+
+# Límite de tamaño de archivo (10MB para imágenes individuales)
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB en bytes
+
+def validate_image_size(uploaded_file):
+    if uploaded_file.size > MAX_FILE_SIZE:
+        st.error(f"Imagen demasiado grande: {uploaded_file.name} ({uploaded_file.size/1024/1024:.1f}MB). Máximo: 10MB")
+        return False
+    return True
+
+f_imgs = st.sidebar.file_uploader(
+    "Imágenes sueltas (máx. 10MB c/u)", 
+    type=["png","jpg","jpeg","webp","bmp","tif","tiff"], 
+    accept_multiple_files=True
+)
+
+# Validar tamaños de archivos subidos
+if f_imgs:
+    f_imgs = [f for f in f_imgs if validate_image_size(f)]
+
 f_zip  = st.sidebar.file_uploader("ZIP con imágenes", type=["zip"])
 f_xl   = st.sidebar.file_uploader("Excel/CSV con URL (y opcional SKU)", type=["xlsx","csv"])
 

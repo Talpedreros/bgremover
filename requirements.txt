@@ -3,7 +3,6 @@ pandas
 Pillow
 requests
 openpyxl
-# Background removal is disabled for the hosted deploy to avoid out-of-memory
-# or native-dependency issues on Streamlit Cloud. To enable locally, install
-# the packages in your dev environment with:
-#   pip install rembg onnxruntime
+# Background removal packages - con límites de memoria
+rembg
+onnxruntime
