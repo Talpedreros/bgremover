@@ -1,2 +1,2 @@
-# Este archivo estÃ¡ intencionalmente vacÃ­o para un despliegue rÃ¡pido
-# No se requieren paquetes del sistema para la funcionalidad bÃ¡sica
+# Este archivo está intencionalmente vacío para un despliegue rápido
+# Si usas rembg en el despliegue, podrías necesitar paquetes del sistema en algunos hosts (p.ej. libglib2.0, libgomp). Revisa la documentación del host.

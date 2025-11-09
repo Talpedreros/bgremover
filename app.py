@@ -48,9 +48,10 @@ inject_css()
 
 st.markdown(f"""
 <div class="hero">
-  <h1>Catálogo: Quitar fondo y redimensionar (PNG)</h1>
-  <p>Arrastra imágenes sueltas, un ZIP o un Excel/CSV con URLs. Salida siempre en <b>PNG</b> (transparente).
-  Descargas individuales si son pocas o ZIP si son muchas. Se genera un manifiesto de errores/no encontradas.</p>
+  <h1>Catálogo: Quitar fondo y redimensionar</h1>
+    <p>Genera imágenes PNG transparentes en múltiples tamaños cuadrados para catálogos online.<br>
+    Sube imágenes sueltas, un ZIP o un Excel/CSV con URLs.<br>
+    Usa la opción de quitar fondo para obtener PNG transparentes automáticamente.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -65,6 +66,73 @@ except Exception:
 
 # ===== Utilidades =====
 INVALID_RE = re.compile(r"[^\w\-.]+")
+
+def select_output_directory() -> Optional[str]:
+    """Selector de carpeta simplificado: mostrar carpeta actual, 'Examinar' y ruta manual.
+
+    El diálogo nativo con tkinter se usa si está disponible (ejecución local). Si no,
+    se ofrece el text_input para pegar la ruta manualmente.
+    """
+    # Intentar importar tkinter para diálogo nativo (solo útil en ejecución local)
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        def _choose_dir():
+            root = tk.Tk()
+            root.withdraw()
+            try:
+                root.attributes('-topmost', True)
+            except Exception:
+                pass
+            path = filedialog.askdirectory()
+            root.destroy()
+            return path
+    except Exception:
+        _choose_dir = None
+
+    home = Path.home()
+
+    # UI simplificada: mostrar carpeta actual, botón 'Examinar' y campo manual
+    cur = st.session_state.get('output_dir_selected', None)
+    disp = cur if cur else "(Usando carpeta temporal por defecto)"
+    col1, col2 = st.columns([4,1])
+    with col1:
+        st.write(f"Carpeta actual: {disp}")
+    with col2:
+        if st.button("Examinar"):
+            if _choose_dir is None:
+                st.warning("El diálogo de examen no está disponible en este entorno. Pega la ruta manualmente abajo.")
+            else:
+                chosen = _choose_dir()
+                if chosen:
+                    try:
+                        Path(chosen).mkdir(parents=True, exist_ok=True)
+                        st.session_state['output_dir_selected'] = str(Path(chosen).absolute())
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo usar la carpeta seleccionada. Verifica permisos. Detalle: {e}")
+
+    # Fallback: permitir pegar la ruta manualmente
+    st.caption("O pega/escribe manualmente una ruta y pulsa 'Usar ruta'.")
+    manual_col, btn_col = st.columns([4,1])
+    with manual_col:
+        manual = st.text_input("Ruta personalizada", value="", placeholder=str(home))
+    with btn_col:
+        if st.button("Usar ruta manual"):
+            if not manual:
+                st.warning("Introduce una ruta antes de usarla.")
+            else:
+                p = Path(manual).expanduser()
+                try:
+                    p.mkdir(parents=True, exist_ok=True)
+                    st.session_state['output_dir_selected'] = str(p.absolute())
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"No se pudo crear la carpeta personalizada. Verifica la ruta y permisos. Detalle: {e}")
+
+    # Devolver la ruta seleccionada (o None si se usa temporal)
+    return st.session_state.get('output_dir_selected', None)
 
 def safe_name(name: str) -> str:
     base = INVALID_RE.sub("_", (name or "").strip())
@@ -136,14 +204,17 @@ sizes = st.sidebar.multiselect(
 )
 usar_quitar_fondo = st.sidebar.checkbox("Quitar fondo", value=True)
 alta_calidad = st.sidebar.checkbox("Alta calidad de recorte", value=True, disabled=(not usar_quitar_fondo))
-forzar_2000 = st.sidebar.checkbox("Forzar /img/2000/ en URLs (Excel/CSV)", value=True)
 
 # ===== Trabajo / salida =====
 work = Path(tempfile.mkdtemp(prefix="cat_"))
-out_dir = work / "salida"
+custom_out_dir = select_output_directory()
+out_dir = Path(custom_out_dir) if custom_out_dir else (work / "salida")
 out_dir.mkdir(parents=True, exist_ok=True)
 mani_rows = []
 generated_files: list[Path] = []
+
+if custom_out_dir:
+    st.info(f"Las imágenes se guardarán en: {out_dir}")
 
 # ---- helpers de progreso ----
 def count_zip_images(file) -> int:
@@ -254,8 +325,7 @@ if st.button("Procesar"):
             for i, row in df.iterrows():
                 sku = str(row[col_sku]).strip() if col_sku else ""
                 url = str(row[col_url]).strip()
-                if forzar_2000:
-                    url = re.sub(r"/img/\d{2,5}/", "/img/2000/", url)
+                # Eliminado forzar_2000: ya no se modifica la URL
 
                 if not url.lower().startsWith(("http://","https://")):
                     mani_rows.append({"origen":"excel", "sku":sku, "url":url, "archivo":"", "estado":"URL_INVALIDA"})
@@ -315,6 +385,5 @@ if st.button("Procesar"):
         zbytes = make_zip(out_dir)
         st.download_button("⬇️ Descargar salida.zip", zbytes, "salida.zip", "application/zip")
 
-st.caption("• Salida siempre en PNG (transparente). Si rembg no está instalado, se omite el recorte de fondo.")
 if not REMBG_OK:
     st.warning("⚠️ rembg no está disponible: instala con `pip install rembg onnxruntime`.")

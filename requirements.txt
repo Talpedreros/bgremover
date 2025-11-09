@@ -3,3 +3,6 @@ pandas
 Pillow
 requests
 openpyxl
+# Background removal (optional on some hosts)
+rembg
+onnxruntime
