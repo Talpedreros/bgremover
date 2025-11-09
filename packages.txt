@@ -1,9 +1,9 @@
-python3-dev
-gcc
-libc-dev
-# Additional system packages that help build native deps (optional)
-# Add these only if you plan to enable rembg/onnxruntime in production
-libgomp1
-libopenblas-dev
-cmake
-build-essential
+## System packages (only enable those you need)
+# Leave this file empty to avoid installing additional system packages on Streamlit Cloud.
+# Uncomment packages below ONLY if you re-enable native dependencies in `requirements.txt`.
+# For rembg/onnxruntime you may need some of these:
+# python3-dev
+# build-essential   # compilers and make
+# libgomp1          # OpenMP runtime (for some wheels)
+# libopenblas-dev   # BLAS/LAPACK (optional)
+# cmake             # build system (rarely needed)
