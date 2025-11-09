@@ -1,3 +1,9 @@
 python3-dev
 gcc
 libc-dev
+# Additional system packages that help build native deps (optional)
+# Add these only if you plan to enable rembg/onnxruntime in production
+libgomp1
+libopenblas-dev
+cmake
+build-essential
