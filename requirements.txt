@@ -1,8 +1,8 @@
-streamlit
+streamlit>=1.51.0
 pandas
 Pillow
 requests
 openpyxl
-# Background removal packages - con límites de memoria
-rembg
-onnxruntime
+# Background removal está deshabilitado en la nube para evitar problemas de memoria
+# Para usar localmente, instala:
+#   pip install rembg onnxruntime

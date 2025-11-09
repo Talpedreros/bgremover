@@ -422,12 +422,16 @@ if st.button("Procesar"):
     st.success("Proceso finalizado ✅")
 
     # ===== Manifiesto y descargas =====
-    mani = pd.DataFrame(mani_rows)
-    st.subheader("Resumen")
-    if not mani.empty:
-        st.dataframe(mani["estado"].value_counts().rename_axis("estado").reset_index(name="count"))
-    else:
-        st.write("No hubo entradas procesadas.")
+    with st.expander("Ver resumen de procesamiento", expanded=True):
+        mani = pd.DataFrame(mani_rows)
+        st.subheader("Resumen")
+        if not mani.empty:
+            st.dataframe(
+                mani["estado"].value_counts().rename_axis("estado").reset_index(name="count"),
+                use_container_width=True
+            )
+        else:
+            st.write("No hubo entradas procesadas.")
 
     # manifiesto.xlsx
     buf = io.BytesIO()
@@ -441,33 +445,40 @@ if st.button("Procesar"):
         key="download_manifest"
     )
 
-    total_files = len(generated_files)
-    if total_files == 0:
-        st.info("No se generaron imágenes.")
-    elif total_files <= 20:
-        st.subheader("Descargas individuales (PNG)")
-        for p in sorted(generated_files):
-            with open(p, "rb") as f:
-                # Agregar key único para cada botón basado en la ruta completa
-                button_key = f"download_{p.parent.name}_{p.name}"
-                st.download_button(
-                    f"⬇️ {p.parent.name}/{p.name}",
-                    f.read(),
-                    file_name=p.name,
-                    mime="image/png",
-                    key=button_key
-                )
-    else:
-        st.subheader("Muchas imágenes generadas")
-        st.info(f"Se generaron {total_files} archivos. Descarga como ZIP:")
-        zbytes = make_zip(out_dir)
-        st.download_button(
-            "⬇️ Descargar salida.zip",
-            zbytes,
-            "salida.zip",
-            "application/zip",
-            key="download_zip"
-        )
+    # Contenedor para descargas
+    with st.container():
+        total_files = len(generated_files)
+        if total_files == 0:
+            st.info("No se generaron imágenes.")
+        else:
+            col1, col2 = st.columns([2,1])
+            with col1:
+                if total_files <= 20:
+                    st.subheader("Descargas individuales (PNG)")
+                    for p in sorted(generated_files):
+                        with open(p, "rb") as f:
+                            # Agregar key único para cada botón basado en la ruta completa
+                            button_key = f"download_{p.parent.name}_{p.name}"
+                            st.download_button(
+                                f"⬇️ {p.parent.name}/{p.name}",
+                                f.read(),
+                                file_name=p.name,
+                                mime="image/png",
+                                key=button_key,
+                                use_container_width=True
+                            )
+                else:
+                    st.subheader("Descargas agrupadas")
+                    st.info(f"Se generaron {total_files} archivos.")
+                    zbytes = make_zip(out_dir)
+                    st.download_button(
+                        "⬇️ Descargar todo como ZIP",
+                        zbytes,
+                        "salida.zip",
+                        "application/zip",
+                        key="download_zip",
+                        use_container_width=True
+                    )
 
 if not REMBG_OK:
     st.warning("⚠️ rembg no está disponible: instala con `pip install rembg onnxruntime`.")
