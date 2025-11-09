@@ -1,9 +1,2 @@
-## System packages (only enable those you need)
-# Leave this file empty to avoid installing additional system packages on Streamlit Cloud.
-# Uncomment packages below ONLY if you re-enable native dependencies in `requirements.txt`.
-# For rembg/onnxruntime you may need some of these:
-# python3-dev
-# build-essential   # compilers and make
-# libgomp1          # OpenMP runtime (for some wheels)
-# libopenblas-dev   # BLAS/LAPACK (optional)
-# cmake             # build system (rarely needed)
+# Este archivo está intencionalmente vacío para un despliegue rápido
+# No se requieren paquetes del sistema para la funcionalidad básica
