@@ -433,10 +433,13 @@ if st.button("Procesar"):
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         mani.to_excel(w, index=False, sheet_name="manifiesto")
-    st.download_button("⬇️ Descargar manifiesto.xlsx",
-                       buf.getvalue(),
-                       file_name="manifiesto.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button(
+        "⬇️ Descargar manifiesto.xlsx",
+        buf.getvalue(),
+        file_name="manifiesto.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        key="download_manifest"
+    )
 
     total_files = len(generated_files)
     if total_files == 0:
@@ -445,12 +448,26 @@ if st.button("Procesar"):
         st.subheader("Descargas individuales (PNG)")
         for p in sorted(generated_files):
             with open(p, "rb") as f:
-                st.download_button(f"⬇️ {p.parent.name}/{p.name}", f.read(), file_name=p.name, mime="image/png")
+                # Agregar key único para cada botón basado en la ruta completa
+                button_key = f"download_{p.parent.name}_{p.name}"
+                st.download_button(
+                    f"⬇️ {p.parent.name}/{p.name}",
+                    f.read(),
+                    file_name=p.name,
+                    mime="image/png",
+                    key=button_key
+                )
     else:
         st.subheader("Muchas imágenes generadas")
         st.info(f"Se generaron {total_files} archivos. Descarga como ZIP:")
         zbytes = make_zip(out_dir)
-        st.download_button("⬇️ Descargar salida.zip", zbytes, "salida.zip", "application/zip")
+        st.download_button(
+            "⬇️ Descargar salida.zip",
+            zbytes,
+            "salida.zip",
+            "application/zip",
+            key="download_zip"
+        )
 
 if not REMBG_OK:
     st.warning("⚠️ rembg no está disponible: instala con `pip install rembg onnxruntime`.")
