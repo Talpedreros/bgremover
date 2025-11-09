@@ -1,2 +1,4 @@
-# Este archivo est· intencionalmente vacÌo para un despliegue r·pido
-# Si usas rembg en el despliegue, podrÌas necesitar paquetes del sistema en algunos hosts (p.ej. libglib2.0, libgomp). Revisa la documentaciÛn del host.
+# Este archivo est√° intencionalmente vac√≠o para un despliegue r√°pido
+# Si usas rembg en el despliegue, podr√≠as necesitar paquetes del sistema en algunos hosts
+# (por ejemplo: libglib2.0-0, libgomp1). A√±ade aqu√≠ los nombres de paquetes apt, uno por l√≠nea.
+# Deja este archivo vac√≠o si no necesitas paquetes del sistema.
